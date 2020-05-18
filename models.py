@@ -147,7 +147,7 @@ class MultiScaleSGNetView(nn.Module):
         assert len(generators) == len(noise_samplers), \
             'Number of generators and noise samplers do not match'
 
-        # assign members, modulelist for generators to ensure
+        # assign members, nn.ModuleList for generators to ensure
         # proper behavior, e.g. .parameters() returning correctly
         self.generators = nn.ModuleList(generators)
         self.scaling_factor = scaling_factor
@@ -159,7 +159,7 @@ class MultiScaleSGNetView(nn.Module):
             g.requires_grad_(False)
             g.eval()
 
-    def forward(self, x, z_input=None, exact_size=None):
+    def forward(self, x, exact_size=None, z_input=None):
         """
         Forward pass through the network.
 
