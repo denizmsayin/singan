@@ -22,7 +22,7 @@ def exact_interpolate(x, exact_size, scaling_factor, mode='bicubic'):
         interp: the interpolated version of x
         interp_exact_size: the exact size of interp
     """
-    interp_exact_size = tuple(self.scaling_factor * d for d in exact_size)
+    interp_exact_size = tuple(scaling_factor * d for d in exact_size)
     interp_rounded_size = tuple(round(d) for d in exact_size)
     interp = F.interpolate(x, size=interp_rounded_size, mode=mode)
     return interp, interp_exact_size
