@@ -197,3 +197,23 @@ class MultiScaleSGNetView(nn.Module):
                                                   self.scaling_mode)
 
         return x_out
+
+
+def init_net(net, prev_nets, architecture_changed):
+    """
+    Used for initializing a network from the previous scale and
+    adding it to the list of similar networks.
+
+    Args:
+        net: a neural network (a generator or critic at a single scale)
+        prev_nets: list of the networks on the previous scales, not containing net yet
+        architecture_changed: boolean flag specifying whether the architecture just
+          changed (kernel count increased) at this scale.
+    """
+
+    # if possible, initialize with weights from the lower layer
+    if prev_nets and not architecture_changed:
+        net.load_state_dict(prev_nets[-1].state_dict())
+    # set train mode & add to list
+    net.train()
+    prev_nets.append(net)

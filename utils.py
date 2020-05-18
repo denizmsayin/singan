@@ -49,3 +49,29 @@ def normed_tensor_to_np_image(img_float):
     chw = np.squeeze(img_float.detach().cpu().numpy())
     hwc = np.transpose(chw, (1, 2, 0))
     return ((hwc + 1.0) * 127.5).astype('uint8')
+
+
+def gradient_penalty(discriminator, fake_batch, real_batch):
+
+    # take a sample from the line between the real and generated images
+    # for use in the gradient penalty (Impr. Training of WGANs)
+
+    # how to calculate this loss is not very clear in this context...
+    # In the case of a scalar discr. output, what should be done is simply
+    # norm the gradient (image-shaped) across the channel axis, and take
+    # the mean across all pixels.
+    # In this case, the output of the critic (discr) is an image (PatchGAN).
+    # If we take its mean to obtain a scalar and then apply the same approach
+    # as the scalar output discr., it seems to suppress the penalty twice
+    # (as if the mean was applied twice). Instead, taking the sum of the
+    # output allows us to apply the mean only once, which we believe is the
+    # proper normalization.
+
+    batch_size = real_batch.shape[0]
+    # select a random point between each real-fake pair
+    epsilons = torch.rand(batch_size)
+    grad_sample = epsilons * real_batch + (1 - epsilons) * fake_batch
+    f_grad_sample = discriminator(grad_sample).sum()
+    grad, = torch.autograd.grad(f_grad_sample, grad_sample, create_graph=True, retain_graph=True)
+    grad_loss = ((torch.norm(grad, 2, dim=1) - 1) ** 2).mean()  # mean over batch
+    return grad_loss
