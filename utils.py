@@ -69,7 +69,7 @@ def gradient_penalty(discriminator, fake_batch, real_batch):
 
     batch_size = real_batch.shape[0]
     # select a random point between each real-fake pair
-    epsilons = torch.rand(batch_size)
+    epsilons = torch.rand(batch_size, device=real_batch.device)
     grad_sample = epsilons * real_batch + (1 - epsilons) * fake_batch
     f_grad_sample = discriminator(grad_sample).sum()
     grad, = torch.autograd.grad(f_grad_sample, grad_sample, create_graph=True, retain_graph=True)

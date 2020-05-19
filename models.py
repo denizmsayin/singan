@@ -10,7 +10,7 @@ class Conv2DBlock(nn.Module):
 
     # the 0.2 negative slope is given in the supplementary materials
     def __init__(self, in_channels, out_channels, kernel_size,  # conv arguments
-                 use_bn=True, activation=None,  # customization of following blocks
+                 use_bn=False, activation=None,  # customization of following blocks
                  conv_initializer=None, bn_initializer=None,  # possibly custom inits
                  conv_kwargs=None, bn_kwargs=None):  # kwargs for conv and bn
 
@@ -214,6 +214,7 @@ def init_net(net, prev_nets, architecture_changed):
     # if possible, initialize with weights from the lower layer
     if prev_nets and not architecture_changed:
         net.load_state_dict(prev_nets[-1].state_dict())
+        print('Loaded previous')
     # set train mode & add to list
     net.train()
     prev_nets.append(net)
