@@ -159,7 +159,7 @@ class MultiScaleSGNetView(nn.Module):
             g.requires_grad_(False)
             g.eval()
 
-    def forward(self, x, exact_size=None, z_input=None):
+    def forward(self, x, exact_size=None, z_input=None, return_input=False):
         """
         Forward pass through the network.
 
@@ -170,6 +170,8 @@ class MultiScaleSGNetView(nn.Module):
         exact_size: a (float, float) tuple for providing the theoretical shape of the input,
             see the 'Note about scaling:' in the class docstring.
             if None, the size of x is used as the exact_size 
+        return_input: if specified, the input of the top generator is also returned along with
+            the output, for comparison purposes
         """
 
         # set exact_size as the input size if not provided
@@ -196,6 +198,8 @@ class MultiScaleSGNetView(nn.Module):
                                                   self.scaling_factor,
                                                   self.scaling_mode)
 
+        if return_input:
+          return x_out, g_input
         return x_out
 
 
