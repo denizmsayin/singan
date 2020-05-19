@@ -23,7 +23,7 @@ def exact_interpolate(x, exact_size, scaling_factor, mode='bicubic'):
         interp_exact_size: the exact size of interp
     """
     interp_exact_size = tuple(scaling_factor * d for d in exact_size)
-    interp_rounded_size = tuple(round(d) for d in exact_size)
+    interp_rounded_size = tuple(round(d) for d in interp_exact_size)
     interp = F.interpolate(x, size=interp_rounded_size, mode=mode)
     return interp, interp_exact_size
 
@@ -69,7 +69,7 @@ def gradient_penalty(discriminator, fake_batch, real_batch):
 
     batch_size = real_batch.shape[0]
     # select a random point between each real-fake pair
-    epsilons = torch.rand(batch_size)
+    epsilons = torch.rand(batch_size, device=real_batch.device)
     grad_sample = epsilons * real_batch + (1 - epsilons) * fake_batch
     f_grad_sample = discriminator(grad_sample).sum()
     grad, = torch.autograd.grad(f_grad_sample, grad_sample, create_graph=True, retain_graph=True)
