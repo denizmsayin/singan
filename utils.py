@@ -144,23 +144,25 @@ def initialize_net(net, prev_nets):
     # if possible, initialize with weights from the lower layer
     if prev_nets and has_same_architecture(net, prev_nets[-1]):
         net.load_state_dict(prev_nets[-1].state_dict())
-        print('Loaded!')
     # set train mode & add to list
     net.train()
     prev_nets.append(net)
 
 
-def save_model(model_dir, generators, critics, noise_stds, scaling_factor):
+def save_model(model_dir, generators, critics, scaling_factor, scaling_mode):
     os.makedirs(model_dir, exist_ok=True)
     save_path = os.path.join(model_dir, 'networks.pt')
     torch.save({
-        'generator_state_dicts': [g.state_dict() for g in generators],
-        'critic_state_dicts': [c.state_dict() for c in critics],
-        'noise_stds': noise_stds,
-        'scaling_factor': scaling_factor
+        'generators': generators,
+        'critics': critics,
+        'scaling_factor': scaling_factor,
+        'scaling_mode': scaling_mode
         }, save_path)
 
 
 def load_model(model_dir):
     load_path = os.path.join(model_dir, 'networks.pt')
+    dictionary = torch.load(load_path)
+    return dictionary['generators'], dictionary['critics'],\
+        dictionary['scaling_factor'], dictionary['scaling_mode']
 

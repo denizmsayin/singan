@@ -71,16 +71,19 @@ class SGNet(nn.Module):
         return self.model(x)
 
 
-def noise_sampler(noise_std):
+class NoiseSampler:
     """
-    This function provides a common interface from which we draw the noise samplers,
+    This functor provides a common interface from which we draw the noise samplers,
     to make it easy to control all the sampling from one code block, we could easily
     change from normal to uniform just by changing one line here, for example.
     A noise sampler simply takes a reference tensor and produces noise with the same shape.
+    Object rather than closure so that it can be pickled without python complaining.
     """
-    def sample_like(x):
-        return noise_std * torch.randn_like(x)
-    return sample_like
+    def __init__(self, noise_std):
+        self.noise_std = noise_std
+
+    def __call__(self, x):
+        return self.noise_std * torch.randn_like(x)
 
 
 class SGGen(torch.nn.Module):
@@ -91,7 +94,7 @@ class SGGen(torch.nn.Module):
     def __init__(self, sgnet, noise_std):
         super().__init__()
         self.sgnet = sgnet
-        self.noise_sampler = noise_sampler(noise_std)
+        self.noise_sampler = NoiseSampler(noise_std)
 
     def forward(self, x, z=None):
         if z is None:
