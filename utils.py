@@ -161,8 +161,8 @@ def initialize_net(net, prev_nets):
     prev_nets.append(net)
 
 
-def save_model(model_dir, generators, critics, scaling_factor, scaling_mode):
-    os.makedirs(model_dir, exist_ok=True)
+def save_model(model_path, generators, critics, scaling_factor, scaling_mode):
+    os.makedirs(os.path.dirname(model_path), exist_ok=True)
     save_path = os.path.join(model_dir, 'networks.pt')
     torch.save({
         'generators': generators,
@@ -172,9 +172,8 @@ def save_model(model_dir, generators, critics, scaling_factor, scaling_mode):
         }, save_path)
 
 
-def load_model(model_dir):
-    load_path = os.path.join(model_dir, 'networks.pt')
-    dictionary = torch.load(load_path)
+def load_model(model_path):
+    dictionary = torch.load(model_path)
     return dictionary['generators'], dictionary['critics'],\
         dictionary['scaling_factor'], dictionary['scaling_mode']
 
@@ -206,7 +205,7 @@ def load_image(image_path, max_input_size, device='cpu', verbose=False):
     if verbose:
         oh, ow = tuple(orig_img.shape[2:4])
         if orig_img.shape != input_img.shape:
-            ih, iw = tuple(orig_img.shape[2:4])
+            ih, iw = tuple(input_img.shape[2:4])
             print('Resized image from {}x{} to {}x{}'.format(oh, ow, ih, iw))
         else:
             print('Image size is {}x{}'.format(oh, ow))
