@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -7,6 +9,7 @@ def sum_param_norms(model):
     """ Returns the sum of the norm of each layer in a model, useful to ensure no change """
     norm = torch.tensor([torch.norm(x) for x in model.parameters()]).sum().item()
     return norm
+
 
 def exact_interpolate(x, scaling_factor, exact_size=None, mode='bicubic'):
     """
@@ -145,3 +148,19 @@ def initialize_net(net, prev_nets):
     # set train mode & add to list
     net.train()
     prev_nets.append(net)
+
+
+def save_model(model_dir, generators, critics, noise_stds, scaling_factor):
+    os.makedirs(model_dir, exist_ok=True)
+    save_path = os.path.join(model_dir, 'networks.pt')
+    torch.save({
+        'generator_state_dicts': [g.state_dict() for g in generators],
+        'critic_state_dicts': [c.state_dict() for c in critics],
+        'noise_stds': noise_stds,
+        'scaling_factor': scaling_factor
+        }, save_path)
+
+
+def load_model(model_dir):
+    load_path = os.path.join(model_dir, 'networks.pt')
+

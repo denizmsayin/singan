@@ -71,7 +71,37 @@ class SGNet(nn.Module):
         return self.model(x)
 
 
-class MultiScaleSGNetView(nn.Module):
+def noise_sampler(noise_std):
+    """
+    This function provides a common interface from which we draw the noise samplers,
+    to make it easy to control all the sampling from one code block, we could easily
+    change from normal to uniform just by changing one line here, for example.
+    A noise sampler simply takes a reference tensor and produces noise with the same shape.
+    """
+    def sample_like(x):
+        return noise_std * torch.randn_like(x)
+    return sample_like
+
+
+class SGGen(torch.nn.Module):
+    """
+    This class adds the extra fluff (noise sampling and residual connections)
+    on top of the basic SGNet architecture to create the full single-scale generator.
+    """
+    def __init__(self, sgnet, noise_std):
+        super().__init__()
+        self.sgnet = sgnet
+        self.noise_sampler = noise_sampler(noise_std)
+
+    def forward(self, x, z=None):
+        if z is None:
+            z = self.noise_sampler(x)
+        g_in = x + z  # image + noise as input
+        g_out = self.sgnet(g_in) + x  # residual connection
+        return g_out
+
+
+class MultiScaleSGGenView(nn.Module):
     """ 
     This class serves as a 'view' over the list of generators that makes the stack
     look like a single generator. Multiple scales of generators are combined by
@@ -81,17 +111,14 @@ class MultiScaleSGNetView(nn.Module):
     another image, just like a single generator. 
     
     Attributes:
-        generators: a list of nn.Module's representing generator networks, converted
+        generators: a list of SGGen's representing generator networks, converted
             to nn.ModuleList when stored
         scaling_factor: a floating point scalar which represents the scale multiplier
             between each generator (e.g. 1.25)
-        noise_samplers: a list of functions that take a tensor as input and return 
-            noise of the same shape as the input, one for each generator. 
-            The order of samplers should match with the order of the generators.
         scaling_mode: a string for the scaling mode, should be a valid input for
             torch.nn.functional.interpolate's 
 
-    Illustration of the view:
+    Illustration of the full architecture:
             samplerN -> noiseN -> | generatorN | 
                         imgN-1 -> |            | -> imgN
                          ^
@@ -131,18 +158,15 @@ class MultiScaleSGNetView(nn.Module):
 
     """
 
-    def __init__(self, generators, scaling_factor, noise_samplers, scaling_mode='bicubic'):
+    def __init__(self, generators, scaling_factor, scaling_mode='bicubic'):
 
         # initialize superclass and check arguments
         super().__init__()
-        assert len(generators) == len(noise_samplers), \
-            'Number of generators and noise samplers do not match'
 
         # assign members, nn.ModuleList for generators to ensure
         # proper behavior, e.g. .parameters() returning correctly
         self.generators = nn.ModuleList(generators)
         self.scaling_factor = scaling_factor
-        self.noise_samplers = noise_samplers
         self.scaling_mode = scaling_mode
 
         # freeze all generators except for the top one 
@@ -162,7 +186,6 @@ class MultiScaleSGNetView(nn.Module):
             see the 'Note about scaling:' in the class docstring.
             if None, the size of x is used as the exact_size
         """
-
         # set exact_size as the input size if not provided
         if exact_size is None:
             exact_size = tuple(float(d) for d in x.shape[2:4])  # (H, W)
@@ -170,27 +193,18 @@ class MultiScaleSGNetView(nn.Module):
         # go through each generator
         x_out = None
         for i, g, in enumerate(self.generators):
-
-            # get the noise input from the proper source
-            if z_input is None:
-                z = self.noise_samplers[i](x)
-            else:
-                z = z_input[i]
-
-            # pass through and upsample for the next scale
-            g_input = x + z  # add the noise and input image
-            x_out = g(g_input) + x  # add the gen. output and the input image
-
+            z = None if z_input is None else z_input[i]  # get the noise input from the proper source
+            x_out = g(x, z)  # pass through
             if i < len(self.generators) - 1:  # upsample if not the last layer
                 # interpolate using the exact dimensions and update them
                 x, exact_size = exact_interpolate(x_out, self.scaling_factor, exact_size, self.scaling_mode)
-
         return x_out
 
 
-class FixedSizeSGNetView(nn.Module):
+class FixedSizeSGGenView(nn.Module):
     """
-    A wrapper to fix the size of an SGNet view for easier calls to forward
+    A wrapper to fix the size of an SGNet view for easier calls to forward, so that
+    we do not have to provide the coarsest zero input and exact size at each call
     """
     def __init__(self, sgnet_view, coarsest_example_input, coarsest_exact_size):
         super().__init__()
