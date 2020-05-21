@@ -1,8 +1,15 @@
 import os
 
 import numpy as np
+from PIL import Image
 import torch
 import torch.nn.functional as F
+
+
+def seed_rngs(seed):
+    """ Seed all random number generators together """
+    np.random.seed(seed)
+    torch.manual_seed(seed)
 
 
 def sum_param_norms(model):
@@ -166,3 +173,37 @@ def load_model(model_dir):
     return dictionary['generators'], dictionary['critics'],\
         dictionary['scaling_factor'], dictionary['scaling_mode']
 
+
+def get_model_path(model_dir, img_path):
+    # extract the name of the image
+    img_name, _ = os.path.splitext(os.path.basename(img_path))
+    model_name = img_name + '.pt'
+    return os.path.join(model_dir, model_name)
+
+
+def load_image(image_path, max_input_size, device='cpu', verbose=False):
+    """
+    Load an image from the given path as a (1, C, H, W) normalized torch tensor.
+    If any of its edges is longer than max_input_size, the image will be resized.
+    If verbose=True, the function will print information about image shapes.
+    """
+    # both np uint and tensor versions
+    orig_img_uint = np.array(Image.open(image_path).convert('RGB'))
+    orig_img = np_image_to_normed_tensor(orig_img_uint)
+    input_img = orig_img
+
+    # resize the image to max size if necessary
+    orig_h, orig_w, _ = orig_img_uint.shape
+    if orig_h > max_input_size or orig_w > max_input_size:
+        input_img = torch.clamp(resize_long_edge(orig_img, max_input_size), -1, 1)
+
+    # print info about sizes if verbose
+    if verbose:
+        oh, ow = tuple(orig_img.shape[2:4])
+        if orig_img.shape != input_img.shape:
+            ih, iw = tuple(orig_img.shape[2:4])
+            print('Resized image from {}x{} to {}x{}'.format(oh, ow, ih, iw))
+        else:
+            print('Image size is {}x{}'.format(oh, ow))
+
+    return input_img.to(device)
