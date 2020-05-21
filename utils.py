@@ -38,7 +38,11 @@ def exact_interpolate(x, scaling_factor, exact_size=None, mode='bicubic'):
         exact_size = tuple(float(d) for d in x.shape[2:4])  # (H, W)
     interp_exact_size = tuple(scaling_factor * d for d in exact_size)
     interp_rounded_size = tuple(round(d) for d in interp_exact_size)
-    interp = F.interpolate(x, size=interp_rounded_size, mode=mode, align_corners=False)
+    # suppress the warning about align_corners by specifying it
+    if mode in ['linear', 'bilinear', 'bicubic', 'trilinear']:
+        interp = F.interpolate(x, size=interp_rounded_size, mode=mode, align_corners=False)
+    else:
+        interp = F.interpolate(x, size=interp_rounded_size, mode=mode)
     return interp, interp_exact_size
 
 
@@ -63,7 +67,7 @@ def resize_long_edge(images, target_size, mode='bicubic'):
 
 
 def create_scale_pyramid(img, scaling_factor, num_scales, mode='bicubic'):
-    exact_size = tuple(float(d) for d in img.shape[2:])  # (N, C, H, W) -> (H, W)
+    exact_size = tuple(float(d) for d in img.shape[2:4])  # (N, C, H, W) -> (H, W)
     scaled_images, exact_scale_sizes = [img], [exact_size]
     for i in range(num_scales-1):
         img, exact_size = exact_interpolate(img, scaling_factor, exact_size, mode)
@@ -112,7 +116,8 @@ def gradient_penalty(discriminator, fake_batch, real_batch):
     # take samples from the line between the real and generated data points
     # for use in the gradient penalty (Impr. Training of WGANs)
     epsilons = torch.rand(batch_size, device=real_batch.device)
-    grad_sample = epsilons * real_batch + (1 - epsilons) * fake_batch
+    # noinspection PyTypeChecker
+    grad_sample = epsilons * real_batch + (1.0 - epsilons) * fake_batch
     # use the samples to calculate gradient norm
     f_grad_sample = discriminator(grad_sample).sum()
     grad, = torch.autograd.grad(f_grad_sample, grad_sample, create_graph=True, retain_graph=True)
@@ -207,3 +212,14 @@ def load_image(image_path, max_input_size, device='cpu', verbose=False):
             print('Image size is {}x{}'.format(oh, ow))
 
     return input_img.to(device)
+
+
+def load_with_reverse_pyramid(image_path, max_input_size, scaling_factor, num_scales,
+                      mode='bicubic', device='cpu', verbose=False):
+    # load the image and create the scale pyramid
+    input_img = load_image(image_path, max_input_size, device, verbose)
+    scaled_inputs, scaled_exact_sizes = create_scale_pyramid(input_img, scaling_factor, num_scales, mode)
+    # reverse both since we start from the coarsest scale
+    scaled_inputs.reverse()
+    scaled_exact_sizes.reverse()
+    return scaled_inputs, scaled_exact_sizes

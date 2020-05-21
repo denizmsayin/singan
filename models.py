@@ -204,16 +204,16 @@ class MultiScaleSGGenView(nn.Module):
         return x_out
 
 
-class FixedSizeSGGenView(nn.Module):
+class FixedInputSGGenView(nn.Module):
     """
     A wrapper to fix the size of an SGNet view for easier calls to forward, so that
-    we do not have to provide the coarsest zero input and exact size at each call
+    we do not have to provide the coarsest zero (or original image) input and exact size at each call
     """
-    def __init__(self, sgnet_view, coarsest_example_input, coarsest_exact_size):
+    def __init__(self, sgnet_view, coarsest_input, coarsest_exact_size):
         super().__init__()
         self.sgnet_view = sgnet_view
         self.coarsest_exact_size = coarsest_exact_size
-        self.coarsest_zero_input = torch.zeros_like(coarsest_example_input)
+        self.coarsest_input = coarsest_input
 
     def forward(self, z_input=None):
-        return self.sgnet_view.forward(self.coarsest_zero_input, self.coarsest_exact_size, z_input)
+        return self.sgnet_view.forward(self.coarsest_input, self.coarsest_exact_size, z_input)
