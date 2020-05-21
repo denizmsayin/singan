@@ -3,6 +3,7 @@ models
 
 # dataset
 BSDS300
+images
 
 # IDE files
 .idea
