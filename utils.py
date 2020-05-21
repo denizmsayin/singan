@@ -3,9 +3,10 @@ import torch
 import torch.nn.functional as F
 
 
-def get_weights_and_biases(model):
-    return [t for k, t in model.state_dict().items() if 'weight' in k or 'bias' in k]
-
+def sum_param_norms(model):
+    """ Returns the sum of the norm of each layer in a model, useful to ensure no change """
+    norm = torch.tensor([torch.norm(x) for x in model.parameters()]).sum().item()
+    return norm
 
 def exact_interpolate(x, scaling_factor, exact_size=None, mode='bicubic'):
     """
@@ -115,7 +116,6 @@ def optimization_step(loss, optimizer, scheduler, loss_records):
     optimizer.step()  # gradient descent
     scheduler.step()  # lr scheduler step
     loss_records.append(loss.item())  # record loss
-    optimizer.zero_grad()  # prepare for next step
 
 
 def has_same_architecture(a, b):
