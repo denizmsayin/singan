@@ -11,9 +11,9 @@ class Conv2DBlock(nn.Module):
     # the 0.2 negative slope is given in the supplementary materials
     def __init__(self, in_channels, out_channels, kernel_size,  # conv arguments
                  use_bn=False, activation=None,  # customization of following blocks
-                 conv_initializer=None, bn_initializer=None,  # possibly custom inits
-                 conv_kwargs=None, bn_kwargs=None):  # kwargs for conv and bn
+                 conv_kwargs=None, bn_kwargs=None):  # optional kwargs for conv and bn
 
+        # mutable default arguments are dangerous
         if conv_kwargs is None:
             conv_kwargs = {}
         if bn_kwargs is None:
@@ -26,12 +26,6 @@ class Conv2DBlock(nn.Module):
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, **conv_kwargs)
         self.bn = nn.BatchNorm2d(out_channels, **bn_kwargs) if use_bn else nn.Identity()
         self.activ = activation if activation else nn.Identity()
-
-        # call custom initializers if they exist
-        if conv_initializer:
-            conv_initializer(self.conv)
-        if use_bn and bn_initializer:
-            bn_initializer(self.bn)
 
     def forward(self, x):
         return self.activ(self.bn(self.conv(x)))
@@ -46,10 +40,9 @@ class SGNet(nn.Module):
     Zero padding is done initially, so that the network preserves the shape of its input.
     """
 
-    def __init__(self, num_blocks=5, kernel_count=32,  # architecture customization
+    def __init__(self, num_blocks=5, kernel_count=32, kernel_size=3, # architecture customization
                  final_activation=nn.Tanh(), final_bn=False,  # final layer cust.
-                 input_channels=3, output_channels=3,  # channel counts
-                 conv_init=None, bn_init=None):  # custom inits
+                 input_channels=3, output_channels=3):  # channel counts
 
         # superclass init and add the initial padding layer
         super().__init__()
@@ -58,18 +51,16 @@ class SGNet(nn.Module):
         # loop to create each layer except last, 
         # all properties are shared except for the number of channels
         def sgnet_block(in_channels, out_channels):
-            return Conv2DBlock(in_channels, out_channels, 3,
-                               activation=nn.LeakyReLU(negative_slope=0.2),  # as given in the paper
-                               conv_initializer=conv_init, bn_initializer=bn_init)
+            return Conv2DBlock(in_channels, out_channels, kernel_size,
+                               activation=nn.LeakyReLU(negative_slope=0.2)) # as given in the paper
 
         layers.append(sgnet_block(input_channels, kernel_count))  # first layer
         for _ in range(num_blocks - 2):  # last layer has a different architecture
             layers.append(sgnet_block(kernel_count, kernel_count))
         # the final activation depends on whether this is the generator or critic
         # (tanh for gen. and none for crit.), and is different from the others
-        final_block = Conv2DBlock(kernel_count, output_channels, 3,
-                                  final_bn, final_activation,
-                                  conv_init, bn_init)
+        final_block = Conv2DBlock(kernel_count, output_channels, kernel_size,
+                                  final_bn, final_activation)
         layers.append(final_block)
 
         # create a sequential model from it
@@ -159,7 +150,7 @@ class MultiScaleSGNetView(nn.Module):
             g.requires_grad_(False)
             g.eval()
 
-    def forward(self, x, exact_size=None, z_input=None, return_input=False):
+    def forward(self, x, exact_size=None, z_input=None):
         """
         Forward pass through the network.
 
@@ -169,9 +160,7 @@ class MultiScaleSGNetView(nn.Module):
             if None, the noise samplers are used to generate noise
         exact_size: a (float, float) tuple for providing the theoretical shape of the input,
             see the 'Note about scaling:' in the class docstring.
-            if None, the size of x is used as the exact_size 
-        return_input: if specified, the input of the top generator is also returned along with
-            the output, for comparison purposes
+            if None, the size of x is used as the exact_size
         """
 
         # set exact_size as the input size if not provided
@@ -194,31 +183,20 @@ class MultiScaleSGNetView(nn.Module):
 
             if i < len(self.generators) - 1:  # upsample if not the last layer
                 # interpolate using the exact dimensions and update them
-                x, exact_size = exact_interpolate(x_out, exact_size,
-                                                  self.scaling_factor,
-                                                  self.scaling_mode)
+                x, exact_size = exact_interpolate(x_out, self.scaling_factor, exact_size, self.scaling_mode)
 
-        if return_input:
-          return x_out, g_input
         return x_out
 
 
-def init_net(net, prev_nets, architecture_changed):
+class FixedSizeSGNetView(nn.Module):
     """
-    Used for initializing a network from the previous scale and
-    adding it to the list of similar networks.
-
-    Args:
-        net: a neural network (a generator or critic at a single scale)
-        prev_nets: list of the networks on the previous scales, not containing net yet
-        architecture_changed: boolean flag specifying whether the architecture just
-          changed (kernel count increased) at this scale.
+    A wrapper to fix the size of an SGNet view for easier calls to forward
     """
+    def __init__(self, sgnet_view, coarsest_example_input, coarsest_exact_size):
+        super().__init__()
+        self.sgnet_view = sgnet_view
+        self.coarsest_exact_size = coarsest_exact_size
+        self.coarsest_zero_input = torch.zeros_like(coarsest_example_input)
 
-    # if possible, initialize with weights from the lower layer
-    if prev_nets and not architecture_changed:
-        net.load_state_dict(prev_nets[-1].state_dict())
-        print('Loaded previous')
-    # set train mode & add to list
-    net.train()
-    prev_nets.append(net)
+    def forward(self, z_input=None):
+        return self.sgnet_view.forward(self.coarsest_zero_input, self.coarsest_exact_size, z_input)
