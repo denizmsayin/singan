@@ -10,7 +10,7 @@ class Conv2DBlock(nn.Module):
 
     # the 0.2 negative slope is given in the supplementary materials
     def __init__(self, in_channels, out_channels, kernel_size,  # conv arguments
-                 use_bn=False, activation=None,  # customization of following blocks
+                 use_bn=True, activation=None,  # customization of following blocks
                  conv_kwargs=None, bn_kwargs=None):  # optional kwargs for conv and bn
 
         # mutable default arguments are dangerous

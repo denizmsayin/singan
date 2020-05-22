@@ -163,13 +163,12 @@ def initialize_net(net, prev_nets):
 
 def save_model(model_path, generators, critics, scaling_factor, scaling_mode):
     os.makedirs(os.path.dirname(model_path), exist_ok=True)
-    save_path = os.path.join(model_dir, 'networks.pt')
     torch.save({
         'generators': generators,
         'critics': critics,
         'scaling_factor': scaling_factor,
         'scaling_mode': scaling_mode
-        }, save_path)
+        }, model_path)
 
 
 def load_model(model_path):
