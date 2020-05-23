@@ -291,11 +291,3 @@ def load_generator(model_path, input_scale=0, custom_input=False, inference=True
         ms_gen.requires_grad_(False)
         ms_gen.eval()
     return ms_gen, input_img
-
-
-def get_model_path(model_dir, img_path):
-    # extract the name of the image
-    img_name, _ = os.path.splitext(os.path.basename(img_path))
-    model_name = img_name + '.pt'
-    return os.path.join(model_dir, model_name)
-

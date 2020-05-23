@@ -163,8 +163,7 @@ def initialize_net(net, prev_nets):
     prev_nets.append(net)
 
 
-
-def load_image(image_path, max_input_size, device='cpu', verbose=False):
+def load_image(image_path, max_input_size=None, device='cpu', verbose=False):
     """
     Load an image from the given path as a (1, C, H, W) normalized torch tensor.
     If any of its edges is longer than max_input_size, the image will be resized.
@@ -175,10 +174,11 @@ def load_image(image_path, max_input_size, device='cpu', verbose=False):
     orig_img = np_image_to_normed_tensor(orig_img_uint)
     input_img = orig_img
 
-    # resize the image to max size if necessary
-    orig_h, orig_w, _ = orig_img_uint.shape
-    if orig_h > max_input_size or orig_w > max_input_size:
-        input_img = torch.clamp(resize_long_edge(orig_img, max_input_size), -1, 1)
+    if max_input_size is not None:
+        # resize the image to max size if necessary
+        orig_h, orig_w, _ = orig_img_uint.shape
+        if orig_h > max_input_size or orig_w > max_input_size:
+            input_img = torch.clamp(resize_long_edge(orig_img, max_input_size), -1, 1)
 
     # print info about sizes if verbose
     if verbose:

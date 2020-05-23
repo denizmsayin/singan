@@ -9,6 +9,7 @@ models
 # dataset
 BSDS300
 images
+user study
 
 # IDE files
 .idea

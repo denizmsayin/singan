@@ -1,7 +1,11 @@
+import os
+
 import numpy as np
 import scipy
 import torch
 from torchvision.models import inception_v3
+
+from utils import load_image
 
 
 def _load_inception_block1(device):
@@ -107,3 +111,13 @@ class SIFIDCalculator:
             sample = fixed_sggen()  # generate one by one, too much memory use otherwise
             sifids[i] = self.calculate_sifid(original_image, sample)
         return sifids.mean()
+
+    def calculate_average_sifid_folders(self, folder1, folder2):
+        sifids = []
+        for img1_path in os.scandir(folder1):
+            img2_path = os.path.join(folder2, img1_path.name)
+            img1 = load_image(img1_path)
+            img2 = load_image(img2_path)
+            sifid = self.calculate_sifid(img1, img2)
+            sifids.append(sifid)
+        return np.array(sifids).mean()
