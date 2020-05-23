@@ -1,8 +1,9 @@
+import os
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
-from utils import exact_interpolate
+from utils import exact_interpolate, np_image_to_normed_tensor, normed_tensor_to_np_image, create_scale_pyramid
 
 
 class Conv2DBlock(nn.Module):
@@ -40,7 +41,7 @@ class SGNet(nn.Module):
     Zero padding is done initially, so that the network preserves the shape of its input.
     """
 
-    def __init__(self, num_blocks=5, kernel_count=32, kernel_size=3, # architecture customization
+    def __init__(self, num_blocks=5, kernel_count=32, kernel_size=3,  # architecture customization
                  final_activation=nn.Tanh(), final_bn=False,  # final layer cust.
                  input_channels=3, output_channels=3):  # channel counts
 
@@ -52,7 +53,7 @@ class SGNet(nn.Module):
         # all properties are shared except for the number of channels
         def sgnet_block(in_channels, out_channels):
             return Conv2DBlock(in_channels, out_channels, kernel_size,
-                               activation=nn.LeakyReLU(negative_slope=0.2)) # as given in the paper
+                               activation=nn.LeakyReLU(negative_slope=0.2))  # as given in the paper
 
         layers.append(sgnet_block(input_channels, kernel_count))  # first layer
         for _ in range(num_blocks - 2):  # last layer has a different architecture
@@ -86,7 +87,7 @@ class NoiseSampler:
         return self.noise_std * torch.randn_like(x)
 
 
-class SGGen(torch.nn.Module):
+class SGGen(nn.Module):
     """
     This class adds the extra fluff (noise sampling and residual connections)
     on top of the basic SGNet architecture to create the full single-scale generator.
@@ -215,5 +216,86 @@ class FixedInputSGGenView(nn.Module):
         self.coarsest_exact_size = coarsest_exact_size
         self.coarsest_input = coarsest_input
 
-    def forward(self, z_input=None):
-        return self.sgnet_view.forward(self.coarsest_input, self.coarsest_exact_size, z_input)
+    def forward(self, z_input=None, num_samples=1):
+        # cool, but a large num_samples can eat up a lot of memory,
+        # so we do not use num_samples > 1 in the notebook
+        inputs = self.coarsest_input.expand(num_samples, -1, -1, -1)
+        return self.sgnet_view.forward(inputs, self.coarsest_exact_size, z_input)
+
+
+def save_model(model_path, image, generators, critics, upsampling_factor, upsampling_mode, downsampling_mode):
+    """
+    A function to save a trained model to the given path.
+
+    Args:
+        model_path: str, path to save the model to
+        image: original image used to train, as a [-1, 1] torch tensor
+        generators: list of trained SGGen generators
+        critics: list of trained SGNet critics
+        upsampling_factor: float, scaling factor used when training the model
+        upsampling_mode: str, mode used when upsampling generator outputs (e.g. bilinear)
+        downsampling_mode: str, mode used when downsampling the original image (e.g. bicubic)
+    """
+    os.makedirs(os.path.dirname(model_path), exist_ok=True)
+    # TODO: could change to encode image into png bytes rather than raw uint8
+    image = normed_tensor_to_np_image(image)
+    torch.save({
+        'image': image,
+        'generators': generators,
+        'critics': critics,
+        'upsampling_factor': upsampling_factor,
+        'upsampling_mode': upsampling_mode,
+        'downsampling_mode': downsampling_mode
+    }, model_path)
+
+
+def load_generator(model_path, input_scale=0, custom_input=False, inference=True, device='cpu'):
+    """
+    A function to load a saved model from disk and create a generator stack from it.
+
+    Args:
+        model_path: path to the saved model file, under
+        input_scale: the scale from which the stack of generators will get their inputs
+        custom_input: if specified, the function will return an MultiScaleSGGenView with no fixed inputs
+            otherwise, a FixedInputSGGen view with zero or scaled original image input is returned
+        inference: if False, the uppermost generator will have grads and be in training mode,
+            otherwise, all the generators will be frozen and in eval mode
+        device: device on which to load the model
+
+    Returns:
+        ms_gen: the multi-scale generator built with the given arguments in inference mode
+        image: the original image the model was trained with, as a [-1, 1] torch tensor
+    """
+    save_dict = torch.load(model_path, map_location=device)
+    # build the view first
+    ms_gen = MultiScaleSGGenView(save_dict['generators'][input_scale:],
+                                 save_dict['upsampling_factor'], save_dict['upsampling_mode'])
+    input_img = np_image_to_normed_tensor(save_dict['image']).to(device)
+    if not custom_input:
+        # create the scale pyramid
+        num_scales = len(save_dict['generators'])
+        downsampling_factor = 1.0 / save_dict['upsampling_factor']
+        img_scales, scale_sizes = create_scale_pyramid(input_img, downsampling_factor,
+                                                       num_scales, save_dict['downsampling_mode'])
+
+        # select the coarsest input and fix it
+        i = -(input_scale + 1)
+        ms_gen_input = img_scales[i]  # scaled original image as input
+        ms_gen_input_size = scale_sizes[i]
+        if input_scale == 0:  # special case, give zeros as input for the coarsest scale
+            ms_gen_input = torch.zeros_like(img_scales[-1])  # zeros like the coarsest
+
+        ms_gen = FixedInputSGGenView(ms_gen, ms_gen_input, ms_gen_input_size)
+    # inference mode
+    if inference:
+        ms_gen.requires_grad_(False)
+        ms_gen.eval()
+    return ms_gen, input_img
+
+
+def get_model_path(model_dir, img_path):
+    # extract the name of the image
+    img_name, _ = os.path.splitext(os.path.basename(img_path))
+    model_name = img_name + '.pt'
+    return os.path.join(model_dir, model_name)
+

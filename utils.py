@@ -163,28 +163,6 @@ def initialize_net(net, prev_nets):
     prev_nets.append(net)
 
 
-def save_model(model_path, generators, critics, scaling_factor, scaling_mode):
-    os.makedirs(os.path.dirname(model_path), exist_ok=True)
-    torch.save({
-        'generators': generators,
-        'critics': critics,
-        'scaling_factor': scaling_factor,
-        'scaling_mode': scaling_mode
-    }, model_path)
-
-
-def load_model(model_path):
-    dictionary = torch.load(model_path)
-    return dictionary['generators'], dictionary['critics'], \
-           dictionary['scaling_factor'], dictionary['scaling_mode']
-
-
-def get_model_path(model_dir, img_path):
-    # extract the name of the image
-    img_name, _ = os.path.splitext(os.path.basename(img_path))
-    model_name = img_name + '.pt'
-    return os.path.join(model_dir, model_name)
-
 
 def load_image(image_path, max_input_size, device='cpu', verbose=False):
     """

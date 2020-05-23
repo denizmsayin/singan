@@ -120,7 +120,6 @@ class SIFIDCalculator:
         """ Calculate the average SIFID between samples from a FixedSGGenView model and the original image """
         sifids = np.zeros(num_samples)
         for i in range(num_samples):
-            with torch.no_grad():
-                sample = fixed_sggen()
+            sample = fixed_sggen()  # generate one by one, too much memory use otherwise
             sifids[i] = self.calculate_sifid(original_image, sample)
         return sifids.mean()
