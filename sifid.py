@@ -20,22 +20,6 @@ def _load_inception_block1(device):
     return inception_block1
 
 
-class _SIFIDInception(torch.nn.Module):
-    """
-    Class wrapping the inception network for practical use,
-    including mapping from [-1, 1] to [0, 1] in .forward()
-    """
-    def __init__(self, device):
-        super().__init__()
-        self.inception = _load_inception_block1(device)
-
-    def forward(self, x):
-        # map the input from [-1, 1] which we use in SinGAN,
-        # to [0, 1], which is used by the inception network
-        x01 = (x + 1) * 0.5
-        return self.inception(x01)
-
-
 def _get_mu_sigma(features):
     """
     Computes mu and sigma of the gaussian distribution fit to image features
@@ -74,7 +58,7 @@ def calculate_fid(mu1, sigma1, mu2, sigma2):
 class SIFIDCalculator:
     """ A class that wraps an inception model and can then be used to calculate SIFID """
     def __init__(self, device='cpu'):
-        self.inception = _SIFIDInception(device)
+        self.inception = _load_inception_block1(device)
 
     def _get_activation_features(self, image):
         """
