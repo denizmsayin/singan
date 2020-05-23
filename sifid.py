@@ -63,6 +63,7 @@ class SIFIDCalculator:
     """ A class that wraps an inception model and can then be used to calculate SIFID """
     def __init__(self, device='cpu'):
         self.inception = _load_inception_block1(device)
+        self.device = device
 
     def _get_activation_features(self, image):
         """
@@ -114,10 +115,10 @@ class SIFIDCalculator:
 
     def calculate_average_sifid_folders(self, folder1, folder2):
         sifids = []
-        for img1_path in os.scandir(folder1):
-            img2_path = os.path.join(folder2, img1_path.name)
-            img1 = load_image(img1_path)
-            img2 = load_image(img2_path)
+        for img1_entry in os.scandir(folder1):
+            img2_path = os.path.join(folder2, img1_entry.name)
+            img1 = load_image(img1_entry.path, device=self.device)
+            img2 = load_image(img2_path, device=self.device)
             sifid = self.calculate_sifid(img1, img2)
             sifids.append(sifid)
         return np.array(sifids).mean()
