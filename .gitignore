@@ -5,6 +5,7 @@ train_stuff.sh
 # models
 models
 *.tar.gz
+*.pt
 
 # dataset
 BSDS300
