@@ -210,8 +210,10 @@ class FixedInputSGGenView(nn.Module):
     A wrapper to fix the size of an SGNet view for easier calls to forward, so that
     we do not have to provide the coarsest zero (or original image) input and exact size at each call
     """
-    def __init__(self, sgnet_view, coarsest_input, coarsest_exact_size):
+    def __init__(self, sgnet_view, coarsest_input, coarsest_exact_size=None):
         super().__init__()
+        if coarsest_exact_size is None:
+            coarsest_exact_size = tuple(float(d) for d in coarsest_input.shape[2:4])
         self.sgnet_view = sgnet_view
         self.coarsest_exact_size = coarsest_exact_size
         self.coarsest_input = coarsest_input
@@ -249,13 +251,16 @@ def save_model(model_path, image, generators, critics, upsampling_factor, upsamp
     }, model_path)
 
 
-def load_generator(model_path, input_scale=0, custom_input=False, inference=True, device='cpu'):
+def load_generator(model_path, input_scale=0, output_size=None, custom_input=False, inference=True, device='cpu'):
     """
     A function to load a saved model from disk and create a generator stack from it.
 
     Args:
         model_path: path to the saved model file, under
         input_scale: the scale from which the stack of generators will get their inputs
+        output_size: a (float, float) tuple, output image size of the generator; if None, the default
+            size with which the network was trained is used. Otherwise, a noise input in accordance
+            with the output size is generated. Only compatible with input_scale == 0 and custom_input == False!
         custom_input: if specified, the function will return an MultiScaleSGGenView with no fixed inputs
             otherwise, a FixedInputSGGen view with zero or scaled original image input is returned
         inference: if False, the uppermost generator will have grads and be in training mode,
@@ -266,6 +271,9 @@ def load_generator(model_path, input_scale=0, custom_input=False, inference=True
         ms_gen: the multi-scale generator built with the given arguments in inference mode
         image: the original image the model was trained with, as a [-1, 1] torch tensor
     """
+    if output_size is not None and (input_scale != 0 or custom_input):
+        raise ValueError('output_size can only be set with input_scale == 0 and custom_input == False!')
+
     save_dict = torch.load(model_path, map_location=device)
     # build the view first
     ms_gen = MultiScaleSGGenView(save_dict['generators'][input_scale:],
@@ -278,14 +286,19 @@ def load_generator(model_path, input_scale=0, custom_input=False, inference=True
         img_scales, scale_sizes = create_scale_pyramid(input_img, downsampling_factor,
                                                        num_scales, save_dict['downsampling_mode'])
 
-        # select the coarsest input and fix it
+        # default assignment for the input, valid when output_size is None and input_scale != 0
         i = -(input_scale + 1)
         ms_gen_input = img_scales[i]  # scaled original image as input
-        ms_gen_input_size = scale_sizes[i]
+        if output_size is None:  # same as in training
+            exact_input_size = scale_sizes[i]
+        else:  # custom output size, calculate custom input size
+            exact_input_size = tuple(float(d) * downsampling_factor**(num_scales-1) for d in output_size)
+            # input scale is guaranteed to be zero here, so the input is set right afterwards
         if input_scale == 0:  # special case, give zeros as input for the coarsest scale
-            ms_gen_input = torch.zeros_like(img_scales[-1])  # zeros like the coarsest
+            rounded_input_size = tuple(round(d) for d in exact_input_size)
+            ms_gen_input = torch.zeros(*input_img.shape[:2], *rounded_input_size, device=device)
 
-        ms_gen = FixedInputSGGenView(ms_gen, ms_gen_input, ms_gen_input_size)
+        ms_gen = FixedInputSGGenView(ms_gen, ms_gen_input, exact_input_size)
     # inference mode
     if inference:
         ms_gen.requires_grad_(False)
