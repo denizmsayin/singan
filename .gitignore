@@ -1,3 +1,7 @@
+project-v1
+*.zip
+samples
+
 # auto-generated code
 train.py
 train_stuff.sh
