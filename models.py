@@ -136,14 +136,14 @@ class MultiScaleSGGenView(nn.Module):
                          |____________________________
                                                      ^
             sampler0 -> noise0 -> | generator0 |     |
-                        img0   -> |            | -> img0
+                                  |            | -> img0
 
     Note about scaling:
         
         Simply using scaling_factor to scale outputs is nice when we do not
         have any strict requirements on image shapes, but does not really
         work when we expect a certain size for each output. Consider
-        the starting from a size of 250 and scaling by a factor of 3/4:
+        starting from a size of 250 and scaling by a factor of 3/4:
         
         scales = [250, 188, 141, 105, 79, 59, 44, 33, 25]
 
