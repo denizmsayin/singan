@@ -207,7 +207,7 @@ class MultiScaleSGGenView(nn.Module):
 
 class FixedInputSGGenView(nn.Module):
     """
-    A wrapper to fix the size of an SGNet view for easier calls to forward, so that
+    A wrapper to fix the input of an SGNet view for easier calls to forward, so that
     we do not have to provide the coarsest zero (or original image) input and exact size at each call
     """
     def __init__(self, sgnet_view, coarsest_input, coarsest_exact_size=None):
