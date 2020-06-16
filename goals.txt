@@ -26,3 +26,7 @@ Quantitative: Table 2, we plan to reproduce the SIFID results (shown in the seco
 
 * We believe that we managed to reproduce the results we aimed to reproduce well enough :)
 
+---- version 2 submission ----
+* Since we had already achieved our goals, we only had to add the paper and code flow summary
+    to our notebook and we did not make any changes in the code. Everything we've said under 
+    version 1 submission still holds.
