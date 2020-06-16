@@ -17,5 +17,5 @@ Please see the jupyter notebook file [main.ipynb](main.ipynb) for a summary of p
 
 The required packages can be found in requirements.txt and installed with conda as follows (tested on Python 3.6): <br>
 ```
-conda install --file requirements.txt
+conda install --file requirements.txt -c conda-forge
 ```
