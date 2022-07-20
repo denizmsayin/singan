@@ -1,3 +1,5 @@
+This re-implementation of SinGAN in pytorch was our project for the Spring 2020 iteration of the graduate CENG796 - Deep Generative Models course in Middle East Technical University's Computer Engineering Department. A compilation of everyone's projects throughout the years can be reached at: https://github.com/gcinbis/deep-generative-models-course-projects
+
 # [SinGAN: Learning a Generative Model from a Single Natural Image](http://openaccess.thecvf.com/content_ICCV_2019/papers/Shaham_SinGAN_Learning_a_Generative_Model_From_a_Single_Natural_Image_ICCV_2019_paper.pdf)
 
 Tamar Rott Shaham, Tali Dekel, Tomer Michaeli
